@@ -96,10 +96,7 @@ def inserir_professor(dados_prof):
 
 # --- 3. FUNÇÕES PARA DADOS NÃO ESTRUTURADOS (PDFs / DocsInst) ---
 
-# Configuração do Splitter
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000, chunk_overlap=200, separators=["\n\n", "\n", " ", ""]
-)
+
 
 def extrair_metadados_pdf(nome_arquivo):
     """Define metadados automáticos baseado no nome do arquivo"""
@@ -123,53 +120,70 @@ def extrair_metadados_pdf(nome_arquivo):
 
     return {"curso_alvo": cursos, "doc_tipo": tipo, "doc_anoVigencia": ano}
 
+def extrair_artigos(texto):
+    padrao = r"(Artigo\s+\d+º.*?)(?=Artigo\s+\d+º|$)"
+    return re.findall(padrao, texto, flags=re.DOTALL)
+
+
+def criar_chunk_pai(titulo_doc, texto, metadados):
+    texto_ancora = f"{titulo_doc}. {texto}"
+    return {
+        "doc_titulo": titulo_doc,
+        "conteudo_completo": texto,
+        "vector_embedding": embedding_model.embed_query(texto_ancora),
+        "metadados": metadados
+    }
+
+
+def criar_chunks_filhos(texto, parent_id):
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=200,
+        chunk_overlap=0
+    )
+
+    filhos = []
+    partes = splitter.split_text(texto)
+
+    for parte in partes:
+        filhos.append({
+            "parent_id": parent_id,
+            "conteudo_chunk": parte,
+            "vector_embedding": embedding_model.embed_query(parte)
+        })
+
+    return filhos
+
+
 def processar_pdf_docsinst(caminho_arquivo):
-    """
-    Processa PDFs para a collection 'DocsInst'.
-    Regra IA: Concatenar título + chunk.
-    """
-    collection = db['DocsInst']
+    collection_pai = db["documentos_pai"]
+    collection_filho = db["documentos_filhos"]
+
     nome_arquivo = os.path.basename(caminho_arquivo)
     titulo_doc = nome_arquivo.replace(".pdf", "").replace("_", " ").title()
 
-    # Verifica duplicidade
-    if collection.find_one({"doc_titulo": titulo_doc}):
+    if collection_pai.find_one({"doc_titulo": titulo_doc}):
         print(f"PULANDO PDF: {titulo_doc} já existe.")
         return
 
-    print(f"PROCESSANDO PDF: {titulo_doc}...")
-    try:
-        loader = PyPDFLoader(caminho_arquivo)
-        paginas = loader.load()
-        chunks = text_splitter.split_documents(paginas)
-        
-        metadados = extrair_metadados_pdf(nome_arquivo)
-        docs_para_inserir = []
+    loader = PyPDFLoader(caminho_arquivo)
+    paginas = loader.load()
+    texto_completo = "\n".join(p.page_content for p in paginas)
 
-        for chunk in chunks:
-            conteudo = chunk.page_content
-            
-            # REGRA ESPECÍFICA DO PDF (Pág 3): Âncora do vetor 
-            texto_ancora = f"Documento: {titulo_doc}. Conteúdo: {conteudo}"
-            vetor = embedding_model.embed_query(texto_ancora)
+    metadados = extrair_metadados_pdf(nome_arquivo)
+    artigos = extrair_artigos(texto_completo)
 
-            doc_json = {
-                "doc_titulo": titulo_doc,           # [cite: 59]
-                "doc_tipo": metadados["doc_tipo"],  # [cite: 60]
-                "doc_anoVigencia": metadados["doc_anoVigencia"], # [cite: 61]
-                "curso_alvo": metadados["curso_alvo"], # [cite: 62]
-                "conteudo_chunk": conteudo,         # [cite: 63]
-                "pagina_origem": chunk.metadata.get('page', 0) + 1, # [cite: 64]
-                "vector_embedding": vetor           # [cite: 65]
-            }
-            docs_para_inserir.append(doc_json)
+    print(f"PROCESSANDO PDF (Parent–Child): {titulo_doc}")
 
-        if docs_para_inserir:
-            collection.insert_many(docs_para_inserir)
-            print(f"PDF {titulo_doc}: {len(docs_para_inserir)} chunks inseridos.")
+    for artigo in artigos:
+        pai = criar_chunk_pai(titulo_doc, artigo, metadados)
+        parent_id = collection_pai.insert_one(pai).inserted_id
 
-    except Exception as e:
-        print(f"Erro no PDF {nome_arquivo}: {e}")
+        filhos = criar_chunks_filhos(artigo, parent_id)
+        if filhos:
+            collection_filho.insert_many(filhos)
+
+    print(f"PDF {titulo_doc}: {len(artigos)} artigos processados.")
+
 
 # --- 4. EXECUÇÃO DE EXEMPLO (MAIN) ---
 # Aqui simulamos o uso. Você pode conectar isso a um front-end ou ler de JSONs reais.
