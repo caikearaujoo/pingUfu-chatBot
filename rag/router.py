@@ -1,4 +1,5 @@
 from rag.classifier import classify_question
+from rag.answer_engine import answer_with_llm
 
 from rag.handlers.institucional import handle_institucional
 from rag.handlers.disciplina_semantica import handle_disciplina_semantica
@@ -9,25 +10,48 @@ from rag.handlers.mixed import handle_mixed_query
 
 def route_question(pergunta: str, llm_client):
     """
-    Roteia a pergunta para o handler correto com base na classificação LLM
+    Roteia a pergunta, recupera contexto e gera resposta final via LLM
     """
 
     routing = classify_question(pergunta, llm_client)
     categoria = routing.get("categoria")
 
+    # 1️⃣ Seleciona o handler
     if categoria == "INSTITUCIONAL":
-        return handle_institucional(pergunta, routing)
+        result = handle_institucional(pergunta, routing)
 
-    if categoria == "SEMANTICA_DISCIPLINA":
-        return handle_disciplina_semantica(pergunta, routing)
+    elif categoria == "SEMANTICA_DISCIPLINA":
+        result = handle_disciplina_semantica(pergunta, routing)
 
-    if categoria == "ESTRUTURAL_DISCIPLINA":
-        return handle_disciplina_estrutural(pergunta, routing)
+    elif categoria == "ESTRUTURAL_DISCIPLINA":
+        result = handle_disciplina_estrutural(pergunta, routing)
 
-    if categoria == "SEMANTICA_PROFESSOR":
-        return handle_professor_semantico(pergunta, routing)
+    elif categoria == "SEMANTICA_PROFESSOR":
+        result = handle_professor_semantico(pergunta, routing)
 
-    if categoria == "MISTA":
-        return handle_mixed_query(pergunta, routing)
+    elif categoria == "MISTA":
+        result = handle_mixed_query(pergunta, routing)
 
-    raise ValueError(f"Categoria desconhecida: {categoria}")
+    else:
+        raise ValueError(f"Categoria desconhecida: {categoria}")
+
+    # 2️⃣ Se o handler não achou nada
+    if "contexto" not in result or not result["contexto"]:
+        return {
+            "answer": "Não encontrei informações suficientes nos documentos oficiais.",
+            "sources": []
+        }
+
+    # 3️⃣ Chamada CENTRALIZADA ao LLM
+    answer = answer_with_llm(
+        pergunta=pergunta,
+        contexto=result["contexto"],
+        llm_client=llm_client
+    )
+
+    # 4️⃣ Resposta final padronizada
+    return {
+        "answer": answer,
+        "sources": result.get("sources", []),
+        "categoria": categoria
+    }

@@ -1,8 +1,8 @@
+requests
+beautifulsoup4
 pymongo
 langchain
 langchain-community
+langchain-text-splitters
 langchain-huggingface
 sentence-transformers
-pypdf
-beautifulsoup4
-requests
