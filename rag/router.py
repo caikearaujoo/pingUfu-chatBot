@@ -16,7 +16,7 @@ def route_question(pergunta: str, llm_client):
     routing = classify_question(pergunta, llm_client)
     categoria = routing.get("categoria")
 
-    # 1️⃣ Seleciona o handler
+    # Seleciona o handler
     if categoria == "INSTITUCIONAL":
         result = handle_institucional(pergunta, routing)
 
@@ -35,21 +35,21 @@ def route_question(pergunta: str, llm_client):
     else:
         raise ValueError(f"Categoria desconhecida: {categoria}")
 
-    # 2️⃣ Se o handler não achou nada
+    # Se o handler não achou nada
     if "contexto" not in result or not result["contexto"]:
         return {
             "answer": "Não encontrei informações suficientes nos documentos oficiais.",
             "sources": []
         }
 
-    # 3️⃣ Chamada CENTRALIZADA ao LLM
+    # Chamada CENTRALIZADA ao LLM
     answer = answer_with_llm(
         pergunta=pergunta,
         contexto=result["contexto"],
         llm_client=llm_client
     )
 
-    # 4️⃣ Resposta final padronizada
+    # Resposta final padronizada
     return {
         "answer": answer,
         "sources": result.get("sources", []),
