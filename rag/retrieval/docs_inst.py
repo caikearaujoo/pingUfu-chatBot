@@ -3,16 +3,25 @@ from pymongo import MongoClient
 from rag.embeddings import embed_text
 from bson import ObjectId
 
-MONGO_URI = os.getenv("MONGO_URI")
+# Variável global para cachear a conexão (Singleton simplificado)
+_db_client = None
 
-if not MONGO_URI:
-    raise RuntimeError("Variável de ambiente MONGO_URI não definida")
+def _get_collections():
+    """
+    Conecta ao Mongo apenas quando necessário.
+    Retorna as collections (filhos, pai).
+    """
+    global _db_client
+    
+    uri = os.getenv("MONGO_URI")
+    if not uri:
+        raise RuntimeError("Variável de ambiente MONGO_URI não definida")
 
-client = MongoClient(MONGO_URI)
-db = client["chatbot_facom"]
-
-collection_filhos = db["documentos_filhos"]
-collection_pai = db["documentos_pai"]
+    if _db_client is None:
+        _db_client = MongoClient(uri)
+    
+    db = _db_client["chatbot_facom"]
+    return db["documentos_filhos"], db["documentos_pai"]
 
 
 def search_docs_institucionais(
@@ -21,16 +30,14 @@ def search_docs_institucionais(
 ) -> list[dict]:
     """
     Busca institucional com Parent–Child Indexing.
-
-    Fluxo:
-    1. Busca vetorial nos chunks filhos
-    2. Recupera o parent_id mais relevante
-    3. Retorna o documento pai completo (1 artigo)
     """
+    
+    # 1. Obtém as conexões agora (Lazy Load)
+    col_filhos, col_pai = _get_collections()
 
     query_embedding = embed_text(query)
 
-    # 1. Busca vetorial nos filhos
+    # 2. Busca vetorial nos filhos
     pipeline = [
         {
             "$vectorSearch": {
@@ -38,36 +45,41 @@ def search_docs_institucionais(
                 "path": "vector_embedding",
                 "queryVector": query_embedding,
                 "numCandidates": 100,
-                "limit": 1
+                "limit": 3  # SUGESTÃO: Aumentei para 3 para ter mais chance de acerto
             }
         }
     ]
 
-    filhos = list(collection_filhos.aggregate(pipeline))
+    filhos = list(col_filhos.aggregate(pipeline))
 
     if not filhos:
         return []
 
+    # Pegamos o primeiro (top 1) por enquanto
     parent_id = filhos[0].get("parent_id")
 
     if not parent_id:
         return []
 
-    # 2. Busca o documento pai
-    pai = collection_pai.find_one(
+    # 3. Busca o documento pai
+    pai = col_pai.find_one(
         {"_id": ObjectId(parent_id)}
     )
 
     if not pai:
         return []
 
-    # 3. Filtro opcional por curso
+    # 4. Filtro opcional por curso
     if curso_alvo:
         cursos_doc = pai.get("metadados", {}).get("curso_alvo", [])
+        # Normaliza para lista se não for
+        if not isinstance(cursos_doc, list):
+            cursos_doc = [cursos_doc]
+            
         if curso_alvo not in cursos_doc and "TODOS" not in cursos_doc:
             return []
 
-    # 4. Retorno padronizado
+    # 5. Retorno padronizado
     return [
         {
             "doc_titulo": pai.get("doc_titulo"),
