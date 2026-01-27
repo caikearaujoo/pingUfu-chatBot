@@ -46,6 +46,7 @@ def route_question(pergunta: str, llm_client):
     answer = answer_with_llm(
         pergunta=pergunta,
         contexto=result["contexto"],
+        categoria=categoria,
         llm_client=llm_client
     )
 
