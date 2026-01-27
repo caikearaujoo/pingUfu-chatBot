@@ -1,9 +1,15 @@
 from rag.prompts.institutional import build_institutional_prompt
-# futuramente:
-# from rag.prompts.disciplina import build_disciplina_prompt
-# from rag.prompts.professor import build_professor_prompt
-# from rag.prompts.mixed import build_mixed_prompt
+from rag.prompts.disciplina import build_disciplina_prompt
+from rag.prompts.professor import build_professor_prompt
+from rag.prompts.mixed import build_mixed_prompt
 
+
+PROMPT_REGISTRY = {
+    "INSTITUCIONAL": build_institutional_prompt,
+    "SEMANTICA_DISCIPLINA": build_disciplina_prompt,
+    "SEMANTICA_PROFESSOR": build_professor_prompt,
+    "MISTA": build_mixed_prompt,
+}
 
 def answer_with_llm(
     pergunta: str,
@@ -12,21 +18,15 @@ def answer_with_llm(
     llm_client
 ) -> str:
     """
-    Gera a resposta final usando o LLM,
-    escolhendo o prompt correto com base na categoria.
+    Gera a resposta final usando o LLM com prompt específico por categoria.
     """
 
-    if categoria == "INSTITUCIONAL":
-        prompt = build_institutional_prompt(pergunta, contexto)
+    prompt_builder = PROMPT_REGISTRY.get(categoria)
 
-    # elif categoria == "SEMANTICA_DISCIPLINA":
-    #     prompt = build_disciplina_prompt(pergunta, contexto)
-
-    # elif categoria == "SEMANTICA_PROFESSOR":
-    #     prompt = build_professor_prompt(pergunta, contexto)
-
-    else:
+    if not prompt_builder:
         raise ValueError(f"Categoria sem prompt definido: {categoria}")
+
+    prompt = prompt_builder(pergunta, contexto)
 
     response = llm_client.generate(
         prompt=prompt,
