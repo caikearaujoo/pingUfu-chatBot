@@ -5,30 +5,42 @@ def handle_institucional(pergunta: str, routing: dict) -> dict:
     """
     Handler responsável por perguntas institucionais:
     regras, normas, resoluções, estágio, TCC, etc.
+
+    Regra:
+    - Sempre retorna UM artigo completo
+    - Nunca retorna chunks
+    - Não chama LLM
     """
 
     curso_alvo = routing.get("curso_alvo")
 
-    # Buscar documentos relevantes
+    # Busca institucional (parent–child)
     docs = search_docs_institucionais(
         query=pergunta,
-        curso_alvo=curso_alvo,
-        top_k=5
+        curso_alvo=curso_alvo
     )
 
     if not docs:
         return {
-            "answer": "Não encontrei documentos institucionais relevantes para responder sua pergunta.",
+            "contexto": "",
             "sources": []
         }
 
-    # Montar contexto para o LLM responder
-    contexto = "\n\n".join(
-        f"[{doc['doc_titulo']} - pág {doc['pagina_origem']}]\n{doc['conteudo_chunk']}"
-        for doc in docs
+    doc = docs[0]
+
+    # Contexto institucional íntegro
+    contexto = (
+        f"[{doc['doc_titulo']}]\n\n"
+        f"{doc['conteudo_completo']}"
     )
 
     return {
         "contexto": contexto,
-        "sources": docs
+        "sources": [
+            {
+                "doc_titulo": doc["doc_titulo"],
+                "tipo": doc.get("tipo"),
+                "metadados": doc.get("metadados")
+            }
+        ]
     }
