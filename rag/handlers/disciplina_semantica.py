@@ -1,31 +1,21 @@
-from rag.retrieval.disciplinas import search_disciplinas_semantica
+from rag.retrieval.disciplinas_semantica import search_disciplina_semantica
 
-
-def handle_disciplina_semantica(pergunta: str, routing: dict) -> dict:
-    """
-    Handler para perguntas sobre conteúdo e aprendizado de disciplinas
-    """
-
-    curso_alvo = routing.get("curso_alvo")
-
-    docs = search_disciplinas_semantica(
-        query=pergunta,
-        curso_alvo=curso_alvo,
-        top_k=5
-    )
+def handle_disciplina_semantica(pergunta: str, routing: dict):
+    docs = search_disciplina_semantica(pergunta)
 
     if not docs:
-        return {
-            "contexto": "",
-            "sources": []
-        }
+        return {"contexto": "", "sources": []}
 
-    contexto = "\n\n".join(
-        f"[{doc['disciplina_nome']} - {doc['disciplina_codigo']}]\n{doc['conteudo_semantico']}"
-        for doc in docs
-    )
+    doc = docs[0]
+
+    contexto = f"""
+Disciplina: {doc['disciplina_nome']}
+Objetivo: {doc['disciplina_obj']}
+Ementa: {doc['disciplina_ementa']}
+Bibliografia: {doc['disciplina_bibliografia']}
+"""
 
     return {
-        "contexto": contexto,
-        "sources": docs
+        "contexto": contexto.strip(),
+        "sources": [doc]
     }
