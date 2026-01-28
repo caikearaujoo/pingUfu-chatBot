@@ -1,8 +1,14 @@
+# --- Essenciais para o Chatbot ---
+openai
+python-dotenv
+pymongo[srv]
+dnspython
 requests
 beautifulsoup4
-pymongo
+
+# --- Essenciais para RAG e Vetores ---
+sentence-transformers
+langchain-huggingface
+langchain-text-splitters
 langchain
 langchain-community
-langchain-text-splitters
-langchain-huggingface
-sentence-transformers
