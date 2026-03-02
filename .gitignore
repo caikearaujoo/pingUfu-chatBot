@@ -1,1 +1,25 @@
+# Chaves e credenciais de API
 .env
+
+# Ambientes virtuais do Python
+.venv/
+venv/
+env/
+
+# Cache do HuggingFace (Modelos de IA)
+.hf_cache/
+
+# Cache do Python
+__pycache__/
+*.pyc
+
+# Arquivos ocultos do sistema (Mac/Windows)
+.DS_Store
+Thumbs.db
+
+# Configurações de editores/IDEs
+.vscode/
+.idea/
+
+# Dados brutos baixados (opcional)
+pdfs_fichas_facom/
