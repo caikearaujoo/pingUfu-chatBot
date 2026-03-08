@@ -17,6 +17,8 @@ def route_question(pergunta: str, llm_client):
     routing = classify_question(pergunta, llm_client)
     categoria = routing.get("categoria")
 
+    print(f"\n🧠 [DEBUG] A IA classificou a pergunta como: {categoria}")
+
     # Seleciona o handler
     if categoria == "INSTITUCIONAL":
         result = handle_institucional(pergunta, routing)

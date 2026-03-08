@@ -32,7 +32,7 @@ def search_professor_semantico(query: str, top_k: int = 3):
         {
             "$vectorSearch": {
                 "index": "vector_index_professores",
-                "path": "vector_embedding",
+                "path": "vetor_unificado",
                 "queryVector": embedding,
                 "numCandidates": 50,
                 "limit": top_k

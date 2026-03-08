@@ -16,6 +16,8 @@ Classifique a pergunta abaixo em UMA das categorias:
 Extraia também:
 - curso_alvo (se houver: BCC, BSI, etc)
 - intencao (ex: regra, conteudo, carga_horaria, professor)
+- disciplina_nome (se a pergunta for sobre uma matéria)
+- codigo_disciplina (se a pergunta citar o código)
 
 Responda APENAS em JSON válido, sem markdown.
 

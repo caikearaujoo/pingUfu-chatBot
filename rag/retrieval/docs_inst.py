@@ -21,7 +21,7 @@ def _get_collections():
         _db_client = MongoClient(uri)
     
     db = _db_client["chatbot_facom"]
-    return db["documentos_filhos"], db["documentos_pai"]
+    return db["docsInstitucionais_chunks"], db["docsInstitucionais"]
 
 
 def search_docs_institucionais(
@@ -42,7 +42,7 @@ def search_docs_institucionais(
         {
             "$vectorSearch": {
                 "index": "vector_index_docsinst_filhos",
-                "path": "vector_embedding",
+                "path": "vetor_chunk",
                 "queryVector": query_embedding,
                 "numCandidates": 100,
                 "limit": 3  # SUGESTÃO: Aumentei para 3 para ter mais chance de acerto
@@ -82,9 +82,9 @@ def search_docs_institucionais(
     # 5. Retorno padronizado
     return [
         {
-            "doc_titulo": pai.get("doc_titulo"),
+            "doc_titulo": pai.get("doc_nome"),
             "tipo": pai.get("tipo"),
-            "conteudo_completo": pai.get("conteudo_completo"),
+            "conteudo_completo": pai.get("texto_completo"),
             "metadados": pai.get("metadados")
         }
     ]

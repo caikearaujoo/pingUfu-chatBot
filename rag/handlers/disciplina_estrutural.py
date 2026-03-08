@@ -9,16 +9,20 @@ def handle_disciplina_estrutural(pergunta: str, routing: dict):
     if not docs:
         return {"contexto": "", "sources": []}
 
-    doc = docs[0]
-
-    contexto = f"""
-Código: {doc.get('disciplina_codigo')}
-Carga horária: {doc.get('disciplina_ch')}
-Pré-requisitos: {doc.get('preRequisitos')}
-Curso: {doc.get('curso_sigla')}
+    partes_contexto = []
+    
+    # Vamos pegar até os 3 primeiros resultados pra não poluir muito
+    for doc in docs[:3]:
+        texto = f"""
+Código: {doc.get('disciplina_codigo', 'N/A')}
+Disciplina: {doc.get('disciplina_nome', 'N/A')}
+Carga horária: {doc.get('disciplina_ch', 'N/A')}
+Pré-requisitos: {doc.get('preRequisitos', [])}
+Curso: {doc.get('curso', {}).get('curso_sigla', 'N/A')}
 """
+        partes_contexto.append(texto.strip())
 
     return {
-        "contexto": contexto.strip(),
-        "sources": [doc]
+        "contexto": "\n\n---\n\n".join(partes_contexto),
+        "sources": docs[:3]
     }

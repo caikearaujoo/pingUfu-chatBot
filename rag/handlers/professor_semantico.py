@@ -8,9 +8,9 @@ def handle_professor_semantico(pergunta: str, routing: dict):
 
     contexto = "\n\n".join(
         f"""
-Professor: {d['prof_nome']}
-Área: {d['prof_area']}
-Pesquisa: {d['prof_pesquisa']}
+Professor: {d.get('prof_nome', 'Desconhecido')}
+Área: {d.get('prof_area', 'Não informada')}
+Pesquisa: {d.get('prof_pesquisa', 'Não informada')}
 """
         for d in docs
     )
