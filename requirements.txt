@@ -1,4 +1,5 @@
 # --- Essenciais para o Chatbot ---
+google-genai
 openai
 python-dotenv
 pymongo[srv]
@@ -12,3 +13,8 @@ langchain-huggingface
 langchain-text-splitters
 langchain
 langchain-community
+
+# --- Backend API (Web) ---
+fastapi
+uvicorn
+pydantic
