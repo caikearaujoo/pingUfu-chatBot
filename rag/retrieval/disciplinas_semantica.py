@@ -1,4 +1,5 @@
 import os
+import certifi
 from pymongo import MongoClient
 from rag.embeddings import embed_text
 
@@ -11,16 +12,23 @@ def _get_collection():
     Evita erro de conexão ao importar o arquivo.
     """
     global _collection
-    
+
     if _collection is None:
         uri = os.getenv("MONGO_URI")
         if not uri:
             raise RuntimeError("Variável de ambiente MONGO_URI não definida")
-            
-        client = MongoClient(uri)
+
+        client = MongoClient(
+            uri,
+            tlsCAFile=certifi.where(),
+            tls=True,
+            retryWrites=False,
+            serverSelectionTimeoutMS=10000,
+            connectTimeoutMS=10000
+        )
         db = client["chatbot_facom"]
         _collection = db["disciplinas"]
-        
+
     return _collection
 
 def search_disciplina_semantica(query: str, top_k: int = 1):

@@ -12,12 +12,14 @@ from typing import List, Optional
 # Carrega variáveis do arquivo .env
 load_dotenv()
 
-# Adiciona a raiz ao path para garantir os imports
+print(f"DEBUG MONGO: {os.getenv('MONGO_URI')}")
+
+# Adiciona a raiz ao path para garantir os imports (fundamental para achar a pasta 'rag')
 sys.path.append(os.path.dirname(__file__))
 
 from rag.router import route_question
 
-# --- 1. Cliente GEMINI (Intacto, como você fez) ---
+# --- 1. Cliente GEMINI ---
 class GeminiClient:
     def __init__(self):
         try:
@@ -51,7 +53,7 @@ class GeminiClient:
         except Exception as e:
             return f"Erro na API do Google: {str(e)}"
 
-# --- 2. Cliente MOCK (Intacto) ---
+# --- 2. Cliente MOCK ---
 class MockClient:
     def generate(self, prompt: str, temperature: float = 0.0) -> str:
         if "Classifique" in prompt:
@@ -63,17 +65,17 @@ class MockClient:
         
         return "🤖 [RESPOSTA MOCK]\nO sistema está rodando em modo de teste."
 
-
 # --- CONFIGURAÇÃO DA API ---
 USE_MOCK = False  
 ia_client = MockClient() if USE_MOCK else GeminiClient()
 
 app = FastAPI(title="PingUfu API", description="Backend Web para o Chatbot da FACOM")
 
-# Configuração essencial para o frontend (React/Lovable) conseguir conversar com a API
+# Configuração essencial para o frontend (React/Vite) conseguir conversar com a API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Libera acesso para qualquer frontend
+    # Liberando as portas específicas do Vite e um curinga geral por segurança
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -86,7 +88,7 @@ class FonteResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     pergunta: str
-    chat_id: Optional[str] = None # Prontinho para a feature de histórico depois
+    chat_id: Optional[str] = None 
 
 class ChatResponse(BaseModel):
     resposta_ia: str
@@ -102,13 +104,21 @@ def home():
 @app.post("/api/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest):
     try:
-        # A mágica do RAG continua igualzinha!
+        # Chama a mágica do seu RAG
         response_data = route_question(request.pergunta, ia_client)
+        
+        # 1. TRAVA DE SEGURANÇA: Se o RAG retornar só um texto (ex: mensagem de erro)
+        if isinstance(response_data, str):
+            return ChatResponse(
+                resposta_ia=response_data,
+                fontes=[],
+                chat_id=request.chat_id
+            )
         
         fontes_formatadas = []
         
-        # Aproveitando a sua ótima lógica de extração de títulos
-        if response_data.get("sources"):
+        # 2. EXTRAÇÃO DE FONTES: Se o RAG retornou o dicionário corretamente
+        if isinstance(response_data, dict) and response_data.get("sources"):
             for src in response_data["sources"]:
                 titulo = (src.get("doc_nome") or 
                           src.get("doc_titulo") or
@@ -121,14 +131,13 @@ def chat_endpoint(request: ChatRequest):
                 
                 fontes_formatadas.append(FonteResponse(titulo=titulo, link=link))
 
-        # Retorna o JSON certinho pro Frontend desenhar na tela
+        # 3. RETORNO FINAL PARA O REACT
         return ChatResponse(
-            resposta_ia=response_data["answer"],
+            resposta_ia=response_data.get("answer", "Desculpe, não consegui formular a resposta."),
             fontes=fontes_formatadas,
             chat_id=request.chat_id
         )
 
     except Exception as e:
+        print(f"Erro capturado no endpoint: {e}") # Aparece no terminal para você debugar
         raise HTTPException(status_code=500, detail=f"Erro interno no motor do PingUfu: {str(e)}")
-
-# Removido o def main() com o while True, pois o uvicorn gerencia o loop do servidor agora.
